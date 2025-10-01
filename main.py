@@ -6,7 +6,6 @@ import os
 import random
 import re
 import shutil
-
 from PIL import Image
 from urllib.request import urlopen, Request
 
@@ -16,6 +15,7 @@ from modules.gui import App
 # cloud service specifics
 import cloudinary
 import cloudinary.uploader
+
 
 def load_json_file(file_name):
     """Opens a JSON file in the script_dir"""
@@ -154,13 +154,13 @@ def upload_file(online_name, file_path):
 
 
 def get_translated_name(adb_id):
-    """Get the translated card name from dict, gotten from ArkhamDB"""
+    """Get the translated card name from arkham.build data"""
     global localized_nicknames_dict
 
     if adb_id.endswith("-t"):  # taboo card
         adb_id = adb_id[:-2]
     if adb_id not in localized_nicknames_dict:
-        print(f"{adb_id} - couldn't get neither translated nor real name")
+        print(f"{adb_id} - card data not found in database")
         return "ERROR"
 
     return localized_nicknames_dict[adb_id]
@@ -184,18 +184,6 @@ def get_back_url(sheet_url):
             else:
                 raise KeyError(f"uploaded_url not found in sheet_parameters")
     raise KeyError(f"no matching back URL found")
-
-
-def is_URL_contained(adb_id, start_id, end_id):
-    """Returns true if the ArkhamDB ID is part of this range."""
-    key1 = sort_key((start_id,))
-    key2 = sort_key((adb_id,))
-    key3 = sort_key((end_id,))
-
-    # compare number parts (might need to update this once we have more variants of IDs, e.g. ..c, ..d)
-    if key1[0] == key2[0]:
-        return True
-    return key1 <= key2 <= key3
 
 
 def process_cards(card_list, sheet_type):
@@ -307,8 +295,6 @@ def fetch_translated_card_names(url):
         raise IOError("Can't fetch translated card names from API")
 
     result_dict = {}
-    translated_card_count = 0
-    untranslated_card_count = 0
     for card in json_data['data']['all_card']:
         result_dict[card['code']] = card.get('name') or card.get("real_name")
     return result_dict
@@ -324,19 +310,23 @@ form = App()
 # get data from form
 cfg = form.get_values()
 
-# probably don't need to change these
+# regular card back URLs
 player_card_back_url = "https://steamusercontent-a.akamaihd.net/ugc/2342503777940352139/A2D42E7E5C43D045D72CE5CFC907E4F886C8C690/"
 encounter_card_back_url = "https://steamusercontent-a.akamaihd.net/ugc/2342503777940351785/F64D8EFB75A9E15446D24343DA0A6EEF5B3E43DB/"
+
+# internal file name conventions
 card_back_suffix = "-back"
 bag_template = "TTSBagTemplate.json"
 bag_script = "TTSBagLuaScript.lua"
+
+# card type defining to split them into separate bags
 player_index_name = "PlayerCards"
 encounter_index_name = "EncounterCards"
-arkhamdb_url = f"https://{cfg["locale"].lower()}.arkhamdb.com/api/public/card/"
-cards_api_url = f"https://api.arkham.build/v1/cache/cards/{cfg["locale"].lower()}"
 script_dir = os.path.dirname(__file__)
 
-localized_nicknames_dict = fetch_translated_card_names(cards_api_url)
+# arkham.build API access to get the translated card data
+arkhambuild_api_url = f"https://api.arkham.build/v1/cache/cards/{cfg["locale"].lower()}"
+localized_nicknames_dict = fetch_translated_card_names(arkhambuild_api_url)
 
 # whitelisted folder names and their corresponded card type
 card_types_dict = {
